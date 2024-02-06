@@ -50,11 +50,41 @@ Resources:
                       - events:PutEvents
                   Resource:
                     - !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/${EventBusName}"
+        Tags:
+        - Key: author
+          Value: Leminou
+        - Key: Creator
+          Value: Leminou
+        - Key: project
+          Value: resources-management
+        - Key: Purpose
+          Value: EC2_Event_State_Change_Rerouting_Main_Rule
+        - Key: RequestedBy
+          Value: Leminou
+        - Key: Temporary
+          Value: "False"
+        - Key: user:app
+          Value: resources-management
   
   EC2StateChangeEventBus:
     Type: AWS::Events::EventBus
     Properties:
         Name: !Ref EventBusName
+        Tags:
+        - Key: author
+          Value: Leminou
+        - Key: Creator
+          Value: Leminou
+        - Key: project
+          Value: resources-management
+        - Key: Purpose
+          Value: EC2_Event_State_Change_Rerouting_EventBus
+        - Key: RequestedBy
+          Value: Leminou
+        - Key: Temporary
+          Value: "False"
+        - Key: user:app
+          Value: resources-management
 
   EC2StateChangeRule:
     Type: AWS::Events::Rule
