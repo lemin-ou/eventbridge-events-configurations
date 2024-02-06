@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Routes all EC2 events to us-east-1 event bus"
+
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: EventBus
+        Parameters:
+          - RoleName
+          - EventBusName
+
+Parameters:
+     EventBusName:
+       Type: String
+       Description: The name of the event bus must exist in N.Virginia (us-east-1)
+       AllowedPattern : ".+"
+     RoleName:
+       Type: String
+       Description: The Name of the Role 
+       AllowedPattern : ".+"
+
+Resources:
+  EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "Routes to us-east-1 event bus"
+      EventBusName: "default"
+      State: "ENABLED"
+      EventPattern:
+        source:
+          - aws.ec2
+        detail-type:
+          - EC2 Instance State-change Notification
+        detail:
+          state:
+            - running
+            - terminated
+            - stopped
+      Targets:
+        - Arn: !Sub
+            - "arn:aws:events:us-east-1:${AWS::AccountId}:event-bus/${EventBusName}"
+            - EventBusName: !Ref EventBusName
+          Id: "CrossRegionDestinationBus"
+          RoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/${RoleName}"
+

@@ -1,0 +1,100 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Role for event-propagation CloudFormation StackSet"
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: EventBus
+        Parameters:
+          - EventBusName
+
+Rules:
+     OnlyAllowCreationIn-us-east-1:
+          Assertions:
+            - Assert:
+                'Fn::Equals':
+                  - !Ref AWS::Region
+                  - us-east-1
+              AssertDescription: 'Check if current region where stack is deployed in is N.Virginia'
+
+Parameters:
+     EventBusName:
+       Type: String
+       Description: The name of the event bus must exist in N.Virginia (us-east-1)
+       AllowedPattern : ".+"
+     SNSTopicName:
+          Type: String
+          Description: The name of the topic must exist in N.Virginia (us-east-1)
+          AllowedPattern : ".+"
+
+Resources:
+  EventBridgeIAMrole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: !Sub events.amazonaws.com
+              Action: sts:AssumeRole
+        Path: /
+        Policies:
+          - PolicyName: PutEventsDestinationBus
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                - Effect: Allow
+                  Action:
+                      - events:PutEvents
+                  Resource:
+                    - !Sub "arn:aws:events:${AWS::Region}:${AWS::AccountId}:event-bus/${EventBusName}"
+  
+  EC2StateChangeEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+        Name: !Ref EventBusName
+
+  EC2StateChangeRule:
+    Type: AWS::Events::Rule
+    DependsOn:
+         - EC2StateChangeEventBus
+    Properties:
+      Description: "Rule to caputre all EC2 state change events in all regions"
+      EventBusName: !Ref EventBusName
+      State: "ENABLED"
+      EventPattern:
+        source:
+          - aws.ec2
+        detail-type:
+          - EC2 Instance State-change Notification
+        detail:
+          state:
+            - running
+            - terminated
+            - stopped
+      Targets:
+        - Arn: !Sub arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}
+          Id: "SNSCloudTeamTopic"
+          InputTransformer:
+              InputPathsMap:
+                  "id": "$.detail.instance-id"
+                  "region": "$.region"
+                  "state": "$.detail.state"
+                  "time": "$.time"
+              InputTemplate: "\"At <time>, the status of the EC2 instance with ID `<id>` in region `<region>` has been updated to `<state>`.\""
+
+Outputs:
+     RoleArn:
+       Value: !GetAtt  EventBridgeIAMrole.Arn
+       Description: Role ARN
+       Export:
+          Name:
+            'Fn::Sub': '${AWS::StackName}-RoleArn'
+     EventBusName:
+       Value: !Ref EventBusName
+       Description: The Event Bus Name
+       Export:
+          Name:
+            'Fn::Sub': '${AWS::StackName}-EventBusName'
