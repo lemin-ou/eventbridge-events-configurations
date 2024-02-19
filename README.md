@@ -1,11 +1,10 @@
-# Rerouting EC2 events
+# EventBridge
 
-This CloudFormation deplyoment is intended to configure AWS EventBridge to re-route all EC2 instance state change events to a custom event bus in N.Virginia (us-east-1).
+This repository hosts essential CloudFormation templates for EventBridge, enabling the creation of stacks required to manage events within the EventBridge service.
 
-This event bus will then send all EC2 instance state change events - while applying an [Input Transformer](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-transform-target-input.html) - to an SNS topic in the same region as the event bus.
+## Supported CloudFormation Templates
 
+The following are the currenly supported templates:
 
-## File Structure
-The [event-propagation-rerouting.yaml](./event-propagation-rerouting.yaml) file should be deployed as [CloudFormation StackSet](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/what-is-cfnstacksets.html) in all activated regions.
-
-The [event-propagation-rule.yaml](./event-propagation-rule.yaml) file should be deployed as standalone stack in the N.Virginia region.
+- [Activate SNS Notification for All EC2 state change events in all Regions](./ec2-events-rerouting/)
+- [Activite SNS Notification for ECR repository scanning events](./container-image-scanning-events/)

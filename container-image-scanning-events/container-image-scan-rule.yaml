@@ -1,0 +1,130 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  CloudFormation template for EventBridge rules to send Container image scanning events to an SNS topic
+
+Parameters:
+     SNSTopicName:
+          Type: String
+          Description: The name of the SNS topic
+          AllowedPattern : ".+"
+Resources:
+  EventRule0:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: >-
+        This rule capture ECR repository scan events and publish
+        them to an SNS topic
+      EventBusName: default
+      EventPattern:
+        source:
+          - aws.ecr
+        detail-type:
+          - ECR Image Scan
+      Name: ECR-SendContainerImageScanEventsToSNS
+      State: ENABLED
+      Targets:
+        - Id: SNSQATeamTopic
+          Arn: !Sub arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}
+          InputTransformer:
+            InputPathsMap:
+              digest: $.detail.image-digest
+              findings_critical: $.detail.finding-severity-counts.CRITICAL
+              findings_high: $.detail.finding-severity-counts.HIGH
+              findings_medium: $.detail.finding-severity-counts.MEDIUM
+              findings_total: $.detail.finding-severity-counts.TOTAL
+              region: $.region
+              repository: $.detail.repository-name
+              tag: $.detail.image-tags.0
+              time: $.time
+            InputTemplate: |
+                "At the time of <time>, ECR completed a scan for the repository named `<repository>` within the `<region>` region," 
+                "which has the tag `<tag>` and digest `<digest>`. Here is a summary of the findings:"
+                "- Critical: <findings_critical>"
+                "- High: <findings_high>"
+                "- Medium: <findings_medium>"
+
+             
+  EventRule1:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: >-
+        This rule capture Inspector repository scan complete event and publish
+        them to an SNS topic
+      EventBusName: default
+      EventPattern:
+        source:
+          - aws.inspector2
+        detail-type:
+          - Inspector2 Scan
+      Name: Inspector-SendRepositoryScanResultsEventsToSNS
+      State: ENABLED
+      Targets:
+        - Id: SNSQATeamTopic
+          Arn: !Sub arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}
+          InputTransformer:
+            InputPathsMap:
+              digest: $.detail.image-digest
+              findings_critical: $.detail.finding-severity-counts.CRITICAL
+              findings_high: $.detail.finding-severity-counts.HIGH
+              findings_medium: $.detail.finding-severity-counts.MEDIUM
+              findings_total: $.detail.finding-severity-counts.TOTAL
+              region: $.region
+              repository: $.detail.repository-name
+              tags: $.detail.image-tags
+              time: $.time
+            InputTemplate: |
+              "At <time>, Inspector completed an enhanced scan for the <repository> repository in the <region> region"
+              "which encompassed tag(s) `<tags>` and digest `<digest>`."
+              
+              "Here is a summary of the findings:"
+
+              "- Total: <findings_total>"
+
+              "- Critical: <findings_critical>"
+
+              "- High: <findings_high>"
+
+              "- Medium: <findings_medium>"
+  EventRule3:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: >-
+        This rule capture Inspector repository scan findings and publish
+        them to an SNS topic
+      EventBusName: default
+      EventPattern:
+        source:
+          - aws.inspector2
+        detail-type:
+          - Inspector2 Finding
+        resources: 
+          # Only capture repository findings events
+          - prefix: arn:aws:ecr
+          - anything-but: 
+              prefix: "i-"
+        detail:
+           severity: ["HIGH", "CRITICAL"]
+           status: ["ACTIVE"]
+      Name: Inspector-SendRepositoryScanFindingsEventsToSNS
+      State: ENABLED
+      Targets:
+        - Id: SNSQATeamTopic
+          Arn: !Sub arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}
+          InputTransformer:
+            InputPathsMap:
+              description: $.detail.description
+              observation: $.detail.lastObservedAt
+              resource: $.resources
+              region: $.region
+              score: $.detail.inspectorScore
+              time: $.time
+              remediation: $.detail.remediation.recommendation.text
+            InputTemplate: |
+              "At <time>, Inspector detected a new critical or high-level finding in the <resource> repository(ies) in <region> region, scoring <score>."
+              "This finding, last observed at <observation>,"
+              "is described as follows:"
+              
+              "<description>"
+
+
+              "Remediation steps: <remediation>"
